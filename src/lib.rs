@@ -1,3 +1,8 @@
+#![warn(clippy::pedantic, clippy::unwrap_used, clippy::expect_used)]
+
+
+
+#[must_use]
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
 }
