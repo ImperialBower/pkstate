@@ -26,9 +26,9 @@ dependencies = ["clean"]
 command = "cargo"
 args = ["doc", "--no-deps"]
 
-# [tasks.docs]
-# command = "open"
-# args = ["./target/doc/pkcore/index.html"]
+ [tasks.docs]
+ command = "open"
+ args = ["./target/doc/pkstate/index.html"]
 
 dependencies = ["create_docs"]
 

@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-cardpack = "0.6.8"
+cardpack = "0.6.9"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml_bw = "2.5.2"

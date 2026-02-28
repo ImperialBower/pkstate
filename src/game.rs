@@ -1,6 +1,50 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, Ord, PartialOrd, Eq, Hash, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, Ord, PartialOrd, Eq, Hash, PartialEq)]
+pub struct ForcedBets {
+    pub small: usize,
+    pub big: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub straddles: Option<Vec<usize>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ante: Option<usize>,
+}
+
+impl ForcedBets {
+    #[must_use]
+    pub fn new(small: usize, big: usize) -> Self {
+        ForcedBets {
+            small,
+            big,
+            straddles: None,
+            ante: None,
+        }
+    }
+
+    #[must_use]
+    pub fn new_with_straddles(small: usize, big: usize, straddles: Vec<usize>) -> Self {
+        ForcedBets {
+            small,
+            big,
+            straddles: Some(straddles),
+            ante: None,
+        }
+    }
+
+    #[must_use]
+    pub fn new_with_ante(small: usize, big: usize, ante: usize) -> Self {
+        ForcedBets {
+            small,
+            big,
+            straddles: None,
+            ante: Some(ante),
+        }
+    }
+}
+
+#[derive(
+    Serialize, Deserialize, Clone, Copy, Debug, Default, Ord, PartialOrd, Eq, Hash, PartialEq,
+)]
 pub enum GameType {
     #[default]
     NoLimitHoldem,

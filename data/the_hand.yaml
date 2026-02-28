@@ -23,7 +23,7 @@ seats:
     starting_chips: 1000000
     hole_cards: "8♣ 3♥"
   - seat: 2
-    player: Antonio Esfandiari
+    player: Antonio Esfandiari`
     starting_chips: 1000000
     hole_cards: "A♦ Q♣"
   - seat: 3
