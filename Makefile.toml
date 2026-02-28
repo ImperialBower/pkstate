@@ -26,15 +26,10 @@ dependencies = ["clean"]
 command = "cargo"
 args = ["doc", "--no-deps"]
 
- [tasks.docs]
- command = "open"
- args = ["./target/doc/pkstate/index.html"]
-
+[tasks.docs]
+command = "open"
+args = ["./target/doc/pkstate/index.html"]
 dependencies = ["create_docs"]
-
-[tasks.fuck]
-command = "grep"
-args = ["-RInE", "'fuck|shit|fart|nimrod|schmuck|asshole|stupid'", "src"]
 
 [tasks.ayce]
 dependencies = [

@@ -1,12 +1,12 @@
 #![warn(clippy::pedantic, clippy::unwrap_used, clippy::expect_used)]
 
+use crate::act::Round;
 use crate::game::{ForcedBets, GameType};
 use crate::seat::Seat;
 use crate::util::{deserialize_basic_pile_opt, serialize_basic_pile_opt};
 use cardpack::prelude::BasicPile;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use crate::act::Round;
 
 pub mod act;
 pub mod game;
@@ -20,6 +20,7 @@ pub struct PKState {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub datetime: Option<DateTime<Utc>>,
     pub game: GameType,
+    pub button: usize,
     pub forced_bets: ForcedBets,
     #[serde(
         skip_serializing_if = "Option::is_none",
@@ -34,15 +35,84 @@ pub struct PKState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cardpack::prelude::*;
     use crate::act::Action;
+    use cardpack::prelude::*;
 
     #[test]
-    fn test_pkstate_yaml_serialization_empty() {
+    fn the_hand() {
+        let players = vec![
+            Seat {
+                id: Some("player0".to_string()),
+                name: "Doyle Brunson".to_string(),
+                hand: basic!("T♠ 2♥"),
+                stack: 1_000_000,
+            },
+            Seat {
+                id: Some("player1".to_string()),
+                name: "Eli Elezra".to_string(),
+                hand: basic!("8♣ 3♥"),
+                stack: 1_000_000,
+            },
+            Seat {
+                id: Some("player2".to_string()),
+                name: "Antonio Esfandari".to_string(),
+                hand: basic!("A♦ Q♣"),
+                stack: 1_000_000,
+            },
+            Seat {
+                id: Some("player3".to_string()),
+                name: "Gus Hansen".to_string(),
+                hand: basic!("5♦ 5♣"),
+                stack: 1_000_000,
+            },
+            Seat {
+                id: Some("player4".to_string()),
+                name: "Daniel Negreanu".to_string(),
+                hand: basic!("6♠ 6♥"),
+                stack: 1_000_000,
+            },
+            Seat {
+                id: Some("player5".to_string()),
+                name: "Cory Zeidman".to_string(),
+                hand: basic!("K♠ J♦"),
+                stack: 1_000_000,
+            },
+            Seat {
+                id: Some("player6".to_string()),
+                name: "Barry Greenstein".to_string(),
+                hand: basic!("4♦ 4♣"),
+                stack: 1_000_000,
+            },
+            Seat {
+                id: Some("player7".to_string()),
+                name: "Amnon Filippi".to_string(),
+                hand: basic!("7♣ 2♦"),
+                stack: 1_000_000,
+            },
+        ];
+
+        let round1 = Round(vec![
+            Action::P1CBR(50),
+            Action::P2CBR(100),
+            Action::P3CBR(2100),
+            Action::P4CBR(5000),
+            Action::P5Fold,
+            Action::P6Fold,
+            Action::P7Fold,
+            Action::P0Fold,
+            Action::P1Fold,
+            Action::P2Fold,
+            Action::P3CBR(5000),
+        ]);
+    }
+
+    #[test]
+    fn yaml_serialization_empty() {
         let pkstate = PKState {
             id: None,
             datetime: None,
             game: GameType::NoLimitHoldem,
+            button: 0,
             forced_bets: ForcedBets::new(50, 100),
             board: None,
             players: vec![],
@@ -71,7 +141,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pkstate_yaml_deserialization_all_game_types() {
+    fn yaml_deserialization_all_game_types() {
         let game_types = vec![
             GameType::NoLimitHoldem,
             GameType::LimitHoldem,
@@ -84,6 +154,7 @@ mod tests {
                 id: None,
                 datetime: None,
                 game: game_type,
+                button: 0,
                 forced_bets: ForcedBets::new(50, 100),
                 board: None,
                 players: vec![],
@@ -106,7 +177,7 @@ mod tests {
     }
 
     #[test]
-    fn test_seat_yaml_serialization() {
+    fn yaml_serialization() {
         let pile = basic!("2♠ 8♣");
 
         let seat = Seat {
@@ -140,7 +211,7 @@ mod tests {
     }
 
     #[test]
-    fn test_seat_yaml_serialization_none_id() {
+    fn yaml_serialization_none_id() {
         let pile = BasicPile::default();
 
         let seat = Seat {
@@ -173,7 +244,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pkstate_with_players_yaml_serialization() {
+    fn with_players_yaml_serialization() {
         let hand1 = basic!("2♠ 8♣");
         let hand2 = basic!("3♠ 6♣");
 
@@ -196,6 +267,7 @@ mod tests {
             id: Some("game1".to_string()),
             datetime: None,
             game: GameType::NoLimitHoldem,
+            button: 0,
             forced_bets: ForcedBets::new(50, 100),
             board: None,
             players,
@@ -239,7 +311,7 @@ mod tests {
     }
 
     #[test]
-    fn test_basic_pile_to_string() {
+    fn basic_pile_to_string() {
         let pile = BasicPile::default();
 
         // Empty piles have empty string representation which is valid
@@ -249,13 +321,14 @@ mod tests {
     }
 
     #[test]
-    fn test_pkstate_with_board_yaml_serialization() {
+    fn with_board_yaml_serialization() {
         let board = BasicPile::default();
 
         let pkstate = PKState {
             id: Some("game2".to_string()),
             datetime: None,
             game: GameType::NoLimitHoldem,
+            button: 0,
             forced_bets: ForcedBets::new(25, 50),
             board: Some(board),
             players: vec![],
@@ -285,25 +358,18 @@ mod tests {
     }
 
     #[test]
-    fn test_pkstate_option_none_skipped_in_yaml() {
+    fn option_none_skipped_in_yaml() {
         let pkstate = PKState {
             id: None,
             datetime: None,
             game: GameType::NoLimitHoldem,
+            button: 0,
             forced_bets: ForcedBets::new(50, 100),
             board: None,
             players: vec![],
             rounds: vec![
-                Round(vec![
-                    Action::P2Check,
-                    Action::P0CBR(200),
-                    Action::P1Fold,
-                ]),
-                Round(vec![
-                    Action::P2Check,
-                    Action::P0CBR(200),
-                    Action::P1Fold,
-                ])
+                Round(vec![Action::P2Check, Action::P0CBR(200), Action::P1Fold]),
+                Round(vec![Action::P2Check, Action::P0CBR(200), Action::P1Fold]),
             ],
         };
 
@@ -341,7 +407,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pkstate_with_datetime_yaml_serialization() {
+    fn with_datetime_yaml_serialization() {
         use chrono::TimeZone;
 
         let datetime = Utc.with_ymd_and_hms(2024, 3, 15, 10, 30, 0).unwrap();
@@ -350,6 +416,7 @@ mod tests {
             id: Some("game3".to_string()),
             datetime: Some(datetime),
             game: GameType::NoLimitHoldem,
+            button: 0,
             forced_bets: ForcedBets::new(50, 100),
             board: None,
             players: vec![],
@@ -377,6 +444,96 @@ mod tests {
             pkstate, deserialized,
             "Deserialized PKState should match original"
         );
-        assert_eq!(deserialized.datetime, Some(datetime), "Datetime should be preserved");
+        assert_eq!(
+            deserialized.datetime,
+            Some(datetime),
+            "Datetime should be preserved"
+        );
+    }
+
+    #[test]
+    fn action_serialization_with_basic_pile() {
+        // Test DealCommon with BasicPile
+        let deal_common = Action::DealCommon(basic!("A♠ K♠ Q♠"));
+        let yaml = serde_yaml_bw::to_string(&deal_common)
+            .expect("Failed to serialize DealCommon");
+        println!("DealCommon YAML:\n{}", yaml);
+        let deserialized: Action = serde_yaml_bw::from_str(&yaml)
+            .expect("Failed to deserialize DealCommon");
+        assert_eq!(deal_common, deserialized, "DealCommon should round-trip");
+
+        // Test P0Dealt with BasicPile
+        let p0_dealt = Action::P0Dealt(basic!("A♥ K♥"));
+        let yaml = serde_yaml_bw::to_string(&p0_dealt)
+            .expect("Failed to serialize P0Dealt");
+        println!("P0Dealt YAML:\n{}", yaml);
+        let deserialized: Action = serde_yaml_bw::from_str(&yaml)
+            .expect("Failed to deserialize P0Dealt");
+        assert_eq!(p0_dealt, deserialized, "P0Dealt should round-trip");
+
+        // Test P5Dealt with BasicPile
+        let p5_dealt = Action::P5Dealt(basic!("7♦ 2♣"));
+        let yaml = serde_yaml_bw::to_string(&p5_dealt)
+            .expect("Failed to serialize P5Dealt");
+        println!("P5Dealt YAML:\n{}", yaml);
+        let deserialized: Action = serde_yaml_bw::from_str(&yaml)
+            .expect("Failed to deserialize P5Dealt");
+        assert_eq!(p5_dealt, deserialized, "P5Dealt should round-trip");
+
+        // Test actions without BasicPile
+        let p0_check = Action::P0Check;
+        let yaml = serde_yaml_bw::to_string(&p0_check)
+            .expect("Failed to serialize P0Check");
+        println!("P0Check YAML:\n{}", yaml);
+        let deserialized: Action = serde_yaml_bw::from_str(&yaml)
+            .expect("Failed to deserialize P0Check");
+        assert_eq!(p0_check, deserialized, "P0Check should round-trip");
+
+        let p2_cbr = Action::P2CBR(500);
+        let yaml = serde_yaml_bw::to_string(&p2_cbr)
+            .expect("Failed to serialize P2CBR");
+        println!("P2CBR YAML:\n{}", yaml);
+        let deserialized: Action = serde_yaml_bw::from_str(&yaml)
+            .expect("Failed to deserialize P2CBR");
+        assert_eq!(p2_cbr, deserialized, "P2CBR should round-trip");
+
+        let p3_wins = Action::P3Wins(1000);
+        let yaml = serde_yaml_bw::to_string(&p3_wins)
+            .expect("Failed to serialize P3Wins");
+        println!("P3Wins YAML:\n{}", yaml);
+        let deserialized: Action = serde_yaml_bw::from_str(&yaml)
+            .expect("Failed to deserialize P3Wins");
+        assert_eq!(p3_wins, deserialized, "P3Wins should round-trip");
+
+        let p7_fold = Action::P7Fold;
+        let yaml = serde_yaml_bw::to_string(&p7_fold)
+            .expect("Failed to serialize P7Fold");
+        println!("P7Fold YAML:\n{}", yaml);
+        let deserialized: Action = serde_yaml_bw::from_str(&yaml)
+            .expect("Failed to deserialize P7Fold");
+        assert_eq!(p7_fold, deserialized, "P7Fold should round-trip");
+    }
+
+    #[test]
+    fn round_serialization_with_dealt_actions() {
+        let round = Round(vec![
+            Action::P0Dealt(basic!("A♠ A♥")),
+            Action::P1Dealt(basic!("K♦ K♣")),
+            Action::P2Dealt(basic!("Q♠ Q♥")),
+            Action::DealCommon(basic!("J♠ T♠ 9♠")),
+            Action::P0CBR(100),
+            Action::P1CBR(300),
+            Action::P2Fold,
+            Action::P0CBR(600),
+            Action::P1CBR(600),
+        ]);
+
+        let yaml = serde_yaml_bw::to_string(&round)
+            .expect("Failed to serialize Round with dealt actions");
+        println!("Round with dealt actions YAML:\n{}", yaml);
+
+        let deserialized: Round = serde_yaml_bw::from_str(&yaml)
+            .expect("Failed to deserialize Round with dealt actions");
+        assert_eq!(round, deserialized, "Round should round-trip correctly");
     }
 }
