@@ -44,56 +44,56 @@ mod tests {
             Seat {
                 id: Some("player0".to_string()),
                 name: "Doyle Brunson".to_string(),
-                hand: basic!("T♠ 2♥"),
                 stack: 1_000_000,
             },
             Seat {
                 id: Some("player1".to_string()),
                 name: "Eli Elezra".to_string(),
-                hand: basic!("8♣ 3♥"),
                 stack: 1_000_000,
             },
             Seat {
                 id: Some("player2".to_string()),
                 name: "Antonio Esfandari".to_string(),
-                hand: basic!("A♦ Q♣"),
                 stack: 1_000_000,
             },
             Seat {
                 id: Some("player3".to_string()),
                 name: "Gus Hansen".to_string(),
-                hand: basic!("5♦ 5♣"),
                 stack: 1_000_000,
             },
             Seat {
                 id: Some("player4".to_string()),
                 name: "Daniel Negreanu".to_string(),
-                hand: basic!("6♠ 6♥"),
                 stack: 1_000_000,
             },
             Seat {
                 id: Some("player5".to_string()),
                 name: "Cory Zeidman".to_string(),
-                hand: basic!("K♠ J♦"),
                 stack: 1_000_000,
             },
             Seat {
                 id: Some("player6".to_string()),
                 name: "Barry Greenstein".to_string(),
-                hand: basic!("4♦ 4♣"),
                 stack: 1_000_000,
             },
             Seat {
                 id: Some("player7".to_string()),
                 name: "Amnon Filippi".to_string(),
-                hand: basic!("7♣ 2♦"),
                 stack: 1_000_000,
             },
         ];
 
-        let round1 = Round(vec![
+        let preflop = Round(vec![
             Action::P1CBR(50),
             Action::P2CBR(100),
+            Action::P1Dealt(basic!("8♣ 3♥")),
+            Action::P2Dealt(basic!("A♦ Q♣")),
+            Action::P3Dealt(basic!("5♦ 5♣")),
+            Action::P4Dealt(basic!("6♠ 6♥")),
+            Action::P5Dealt(basic!("K♠ J♦")),
+            Action::P6Dealt(basic!("4♦ 4♣")),
+            Action::P7Dealt(basic!("7♣ 2♦")),
+            Action::P0Dealt(basic!("T♠ 2♥")),
             Action::P3CBR(2100),
             Action::P4CBR(5000),
             Action::P5Fold,
@@ -104,6 +104,48 @@ mod tests {
             Action::P2Fold,
             Action::P3CBR(5000),
         ]);
+
+        let flop = Round(vec![
+            Action::DealCommon(basic!("9♣ 6♦ 5♥")),
+            Action::P3Check,
+            Action::P4CBR(8000),
+            Action::P3CBR(26000),
+            Action::P4CBR(26000),
+        ]);
+
+        let turn = Round(vec![
+            Action::DealCommon(basic!("5♠")),
+            Action::P3CBR(24000),
+            Action::P4CBR(24000),
+        ]);
+
+        let river = Round(vec![
+            Action::DealCommon(basic!("8♠")),
+            Action::P3Check,
+            Action::P4CBR(65000),
+            Action::P3CBR(945000),
+            Action::P4CBR(945000),
+            Action::P3Wins(2000150),
+            Action::P4Loses(1000000),
+        ]);
+
+        let rounds = vec![preflop, flop, turn, river];
+
+        let pkstate = PKState {
+            id: Some("the_hand".to_string()),
+            datetime: None,
+            game: GameType::NoLimitHoldem,
+            button: 0,
+            forced_bets: ForcedBets::new(50, 100),
+            board: None,
+            players,
+            rounds,
+        };
+
+        let yaml_string =
+            serde_yaml_bw::to_string(&pkstate).expect("Failed to serialize PKState to YAML");
+
+        println!("{}", yaml_string);
     }
 
     #[test]
@@ -178,24 +220,15 @@ mod tests {
 
     #[test]
     fn yaml_serialization() {
-        let pile = basic!("2♠ 8♣");
-
         let seat = Seat {
             id: Some("player1".to_string()),
             name: "Alice".to_string(),
-            hand: pile,
             stack: 1000,
         };
 
         // Serialize to YAML
         let yaml_string =
             serde_yaml_bw::to_string(&seat).expect("Failed to serialize Seat to YAML");
-
-        // Verify the hand is serialized as a string
-        assert!(
-            yaml_string.contains("hand:"),
-            "YAML should contain hand field"
-        );
 
         // Deserialize from YAML
         let deserialized: Seat =
@@ -212,12 +245,9 @@ mod tests {
 
     #[test]
     fn yaml_serialization_none_id() {
-        let pile = BasicPile::default();
-
         let seat = Seat {
             id: None,
             name: "Bob".to_string(),
-            hand: pile,
             stack: 500,
         };
 
@@ -245,20 +275,15 @@ mod tests {
 
     #[test]
     fn with_players_yaml_serialization() {
-        let hand1 = basic!("2♠ 8♣");
-        let hand2 = basic!("3♠ 6♣");
-
         let players = vec![
             Seat {
                 id: Some("player1".to_string()),
                 name: "Alice".to_string(),
-                hand: hand1,
                 stack: 1000,
             },
             Seat {
                 id: Some("player2".to_string()),
                 name: "Bob".to_string(),
-                hand: hand2,
                 stack: 500,
             },
         ];
@@ -455,62 +480,55 @@ mod tests {
     fn action_serialization_with_basic_pile() {
         // Test DealCommon with BasicPile
         let deal_common = Action::DealCommon(basic!("A♠ K♠ Q♠"));
-        let yaml = serde_yaml_bw::to_string(&deal_common)
-            .expect("Failed to serialize DealCommon");
+        let yaml = serde_yaml_bw::to_string(&deal_common).expect("Failed to serialize DealCommon");
         println!("DealCommon YAML:\n{}", yaml);
-        let deserialized: Action = serde_yaml_bw::from_str(&yaml)
-            .expect("Failed to deserialize DealCommon");
+        let deserialized: Action =
+            serde_yaml_bw::from_str(&yaml).expect("Failed to deserialize DealCommon");
         assert_eq!(deal_common, deserialized, "DealCommon should round-trip");
 
         // Test P0Dealt with BasicPile
         let p0_dealt = Action::P0Dealt(basic!("A♥ K♥"));
-        let yaml = serde_yaml_bw::to_string(&p0_dealt)
-            .expect("Failed to serialize P0Dealt");
+        let yaml = serde_yaml_bw::to_string(&p0_dealt).expect("Failed to serialize P0Dealt");
         println!("P0Dealt YAML:\n{}", yaml);
-        let deserialized: Action = serde_yaml_bw::from_str(&yaml)
-            .expect("Failed to deserialize P0Dealt");
+        let deserialized: Action =
+            serde_yaml_bw::from_str(&yaml).expect("Failed to deserialize P0Dealt");
         assert_eq!(p0_dealt, deserialized, "P0Dealt should round-trip");
 
         // Test P5Dealt with BasicPile
         let p5_dealt = Action::P5Dealt(basic!("7♦ 2♣"));
-        let yaml = serde_yaml_bw::to_string(&p5_dealt)
-            .expect("Failed to serialize P5Dealt");
+        let yaml = serde_yaml_bw::to_string(&p5_dealt).expect("Failed to serialize P5Dealt");
         println!("P5Dealt YAML:\n{}", yaml);
-        let deserialized: Action = serde_yaml_bw::from_str(&yaml)
-            .expect("Failed to deserialize P5Dealt");
+        let deserialized: Action =
+            serde_yaml_bw::from_str(&yaml).expect("Failed to deserialize P5Dealt");
         assert_eq!(p5_dealt, deserialized, "P5Dealt should round-trip");
 
         // Test actions without BasicPile
         let p0_check = Action::P0Check;
-        let yaml = serde_yaml_bw::to_string(&p0_check)
-            .expect("Failed to serialize P0Check");
+        let yaml = serde_yaml_bw::to_string(&p0_check).expect("Failed to serialize P0Check");
         println!("P0Check YAML:\n{}", yaml);
-        let deserialized: Action = serde_yaml_bw::from_str(&yaml)
-            .expect("Failed to deserialize P0Check");
+        let deserialized: Action =
+            serde_yaml_bw::from_str(&yaml).expect("Failed to deserialize P0Check");
         assert_eq!(p0_check, deserialized, "P0Check should round-trip");
 
         let p2_cbr = Action::P2CBR(500);
-        let yaml = serde_yaml_bw::to_string(&p2_cbr)
-            .expect("Failed to serialize P2CBR");
+        let yaml = serde_yaml_bw::to_string(&p2_cbr).expect("Failed to serialize P2CBR");
         println!("P2CBR YAML:\n{}", yaml);
-        let deserialized: Action = serde_yaml_bw::from_str(&yaml)
-            .expect("Failed to deserialize P2CBR");
+        let deserialized: Action =
+            serde_yaml_bw::from_str(&yaml).expect("Failed to deserialize P2CBR");
         assert_eq!(p2_cbr, deserialized, "P2CBR should round-trip");
 
         let p3_wins = Action::P3Wins(1000);
-        let yaml = serde_yaml_bw::to_string(&p3_wins)
-            .expect("Failed to serialize P3Wins");
+        let yaml = serde_yaml_bw::to_string(&p3_wins).expect("Failed to serialize P3Wins");
         println!("P3Wins YAML:\n{}", yaml);
-        let deserialized: Action = serde_yaml_bw::from_str(&yaml)
-            .expect("Failed to deserialize P3Wins");
+        let deserialized: Action =
+            serde_yaml_bw::from_str(&yaml).expect("Failed to deserialize P3Wins");
         assert_eq!(p3_wins, deserialized, "P3Wins should round-trip");
 
         let p7_fold = Action::P7Fold;
-        let yaml = serde_yaml_bw::to_string(&p7_fold)
-            .expect("Failed to serialize P7Fold");
+        let yaml = serde_yaml_bw::to_string(&p7_fold).expect("Failed to serialize P7Fold");
         println!("P7Fold YAML:\n{}", yaml);
-        let deserialized: Action = serde_yaml_bw::from_str(&yaml)
-            .expect("Failed to deserialize P7Fold");
+        let deserialized: Action =
+            serde_yaml_bw::from_str(&yaml).expect("Failed to deserialize P7Fold");
         assert_eq!(p7_fold, deserialized, "P7Fold should round-trip");
     }
 
@@ -528,12 +546,12 @@ mod tests {
             Action::P1CBR(600),
         ]);
 
-        let yaml = serde_yaml_bw::to_string(&round)
-            .expect("Failed to serialize Round with dealt actions");
+        let yaml =
+            serde_yaml_bw::to_string(&round).expect("Failed to serialize Round with dealt actions");
         println!("Round with dealt actions YAML:\n{}", yaml);
 
-        let deserialized: Round = serde_yaml_bw::from_str(&yaml)
-            .expect("Failed to deserialize Round with dealt actions");
+        let deserialized: Round =
+            serde_yaml_bw::from_str(&yaml).expect("Failed to deserialize Round with dealt actions");
         assert_eq!(round, deserialized, "Round should round-trip correctly");
     }
 }

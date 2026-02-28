@@ -1,6 +1,6 @@
 use cardpack::prelude::{BasicPile, Pile, Standard52};
+use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde::de::{self, Visitor, MapAccess};
 use std::fmt;
 
 #[derive(Clone, Debug, Ord, PartialOrd, Eq, Hash, PartialEq)]
@@ -406,7 +406,10 @@ impl<'de> Deserialize<'de> for Action {
                     "P10Fold" => Ok(Action::P10Fold),
                     "P11Check" => Ok(Action::P11Check),
                     "P11Fold" => Ok(Action::P11Fold),
-                    _ => Err(de::Error::unknown_variant(value, &["P0Check", "P0Fold", "..."])),
+                    _ => Err(de::Error::unknown_variant(
+                        value,
+                        &["P0Check", "P0Fold", "..."],
+                    )),
                 }
             }
 
@@ -414,7 +417,9 @@ impl<'de> Deserialize<'de> for Action {
             where
                 M: MapAccess<'de>,
             {
-                let key: String = map.next_key()?.ok_or_else(|| de::Error::missing_field("action type"))?;
+                let key: String = map
+                    .next_key()?
+                    .ok_or_else(|| de::Error::missing_field("action type"))?;
 
                 match key.as_str() {
                     "DealCommon" => {
@@ -557,7 +562,10 @@ impl<'de> Deserialize<'de> for Action {
                     "P11CBR" => Ok(Action::P11CBR(map.next_value()?)),
                     "P11Wins" => Ok(Action::P11Wins(map.next_value()?)),
                     "P11Loses" => Ok(Action::P11Loses(map.next_value()?)),
-                    _ => Err(de::Error::unknown_field(&key, &["DealCommon", "P0Dealt", "P0CBR", "..."])),
+                    _ => Err(de::Error::unknown_field(
+                        &key,
+                        &["DealCommon", "P0Dealt", "P0CBR", "..."],
+                    )),
                 }
             }
         }
@@ -643,7 +651,7 @@ impl Action {
             | Action::P11Fold
             | Action::P11Wins(_)
             | Action::P11Loses(_) => Some(11),
-            Action::DealCommon(_) => None
+            Action::DealCommon(_) => None,
         }
     }
 }
