@@ -4,8 +4,11 @@ use crate::game::{ForcedBets, GameType};
 use crate::seat::Seat;
 use crate::util::{deserialize_basic_pile_opt, serialize_basic_pile_opt};
 use cardpack::prelude::BasicPile;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use crate::act::Round;
 
+pub mod act;
 pub mod game;
 pub mod seat;
 pub mod util;
@@ -14,6 +17,8 @@ pub mod util;
 pub struct PKState {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub datetime: Option<DateTime<Utc>>,
     pub game: GameType,
     pub forced_bets: ForcedBets,
     #[serde(
@@ -24,27 +29,29 @@ pub struct PKState {
     )]
     pub board: Option<BasicPile>,
     pub players: Vec<Seat>,
+    pub rounds: Vec<Round>,
 }
 #[cfg(test)]
 mod tests {
     use super::*;
     use cardpack::prelude::*;
+    use crate::act::Action;
 
     #[test]
     fn test_pkstate_yaml_serialization_empty() {
         let pkstate = PKState {
             id: None,
+            datetime: None,
             game: GameType::NoLimitHoldem,
             forced_bets: ForcedBets::new(50, 100),
             board: None,
             players: vec![],
+            rounds: vec![],
         };
 
         // Serialize to YAML
         let yaml_string =
             serde_yaml_bw::to_string(&pkstate).expect("Failed to serialize PKState to YAML");
-
-        println!("Empty PKState YAML:\n{}", yaml_string);
 
         // Verify the YAML contains the expected content
         assert!(
@@ -75,10 +82,12 @@ mod tests {
         for game_type in game_types {
             let pkstate = PKState {
                 id: None,
+                datetime: None,
                 game: game_type,
                 forced_bets: ForcedBets::new(50, 100),
                 board: None,
                 players: vec![],
+                rounds: vec![],
             };
 
             // Serialize and deserialize
@@ -110,8 +119,6 @@ mod tests {
         // Serialize to YAML
         let yaml_string =
             serde_yaml_bw::to_string(&seat).expect("Failed to serialize Seat to YAML");
-
-        println!("Seat YAML:\n{}", yaml_string);
 
         // Verify the hand is serialized as a string
         assert!(
@@ -146,8 +153,6 @@ mod tests {
         // Serialize to YAML
         let yaml_string =
             serde_yaml_bw::to_string(&seat).expect("Failed to serialize Seat to YAML");
-
-        println!("Seat without ID YAML:\n{}", yaml_string);
 
         // Verify that the id field is not included (skipped) in YAML
         assert!(
@@ -189,17 +194,17 @@ mod tests {
 
         let pkstate = PKState {
             id: Some("game1".to_string()),
+            datetime: None,
             game: GameType::NoLimitHoldem,
             forced_bets: ForcedBets::new(50, 100),
             board: None,
             players,
+            rounds: vec![],
         };
 
         // Serialize to YAML
         let yaml_string =
             serde_yaml_bw::to_string(&pkstate).expect("Failed to serialize PKState to YAML");
-
-        println!("PKState with players YAML:\n{}", yaml_string);
 
         // Verify the YAML structure
         assert!(
@@ -237,10 +242,6 @@ mod tests {
     fn test_basic_pile_to_string() {
         let pile = BasicPile::default();
 
-        // Convert to string representation
-        let pile_str = pile.to_string();
-        println!("BasicPile string representation: '{}'", pile_str);
-
         // Empty piles have empty string representation which is valid
         // Verify serialization of the pile works
         let yaml_str = serde_yaml_bw::to_string(&pile).expect("Failed to serialize BasicPile");
@@ -253,17 +254,17 @@ mod tests {
 
         let pkstate = PKState {
             id: Some("game2".to_string()),
+            datetime: None,
             game: GameType::NoLimitHoldem,
             forced_bets: ForcedBets::new(25, 50),
             board: Some(board),
             players: vec![],
+            rounds: vec![],
         };
 
         // Serialize to YAML
         let yaml_string = serde_yaml_bw::to_string(&pkstate)
             .expect("Failed to serialize PKState with board to YAML");
-
-        println!("PKState with board YAML:\n{}", yaml_string);
 
         // Verify the board is serialized as a string
         assert!(
@@ -287,22 +288,37 @@ mod tests {
     fn test_pkstate_option_none_skipped_in_yaml() {
         let pkstate = PKState {
             id: None,
+            datetime: None,
             game: GameType::NoLimitHoldem,
             forced_bets: ForcedBets::new(50, 100),
             board: None,
             players: vec![],
+            rounds: vec![
+                Round(vec![
+                    Action::P2Check,
+                    Action::P0CBR(200),
+                    Action::P1Fold,
+                ]),
+                Round(vec![
+                    Action::P2Check,
+                    Action::P0CBR(200),
+                    Action::P1Fold,
+                ])
+            ],
         };
 
         // Serialize to YAML
         let yaml_string =
             serde_yaml_bw::to_string(&pkstate).expect("Failed to serialize PKState to YAML");
 
-        println!("PKState with None fields YAML:\n{}", yaml_string);
-
         // Verify that Option::None fields are skipped
         assert!(
             !yaml_string.contains("id:"),
             "YAML should skip id field when None"
+        );
+        assert!(
+            !yaml_string.contains("datetime:"),
+            "YAML should skip datetime field when None"
         );
         assert!(
             !yaml_string.contains("board:"),
@@ -322,5 +338,45 @@ mod tests {
             yaml_string.contains("players:"),
             "YAML should contain players field"
         );
+    }
+
+    #[test]
+    fn test_pkstate_with_datetime_yaml_serialization() {
+        use chrono::TimeZone;
+
+        let datetime = Utc.with_ymd_and_hms(2024, 3, 15, 10, 30, 0).unwrap();
+
+        let pkstate = PKState {
+            id: Some("game3".to_string()),
+            datetime: Some(datetime),
+            game: GameType::NoLimitHoldem,
+            forced_bets: ForcedBets::new(50, 100),
+            board: None,
+            players: vec![],
+            rounds: vec![],
+        };
+
+        // Serialize to YAML
+        let yaml_string =
+            serde_yaml_bw::to_string(&pkstate).expect("Failed to serialize PKState to YAML");
+
+        println!("PKState with datetime YAML:\n{}", yaml_string);
+
+        // Verify the datetime is serialized
+        assert!(
+            yaml_string.contains("datetime:"),
+            "YAML should contain datetime field"
+        );
+
+        // Deserialize from YAML
+        let deserialized: PKState =
+            serde_yaml_bw::from_str(&yaml_string).expect("Failed to deserialize PKState from YAML");
+
+        // Verify the deserialized state matches the original
+        assert_eq!(
+            pkstate, deserialized,
+            "Deserialized PKState should match original"
+        );
+        assert_eq!(deserialized.datetime, Some(datetime), "Datetime should be preserved");
     }
 }
