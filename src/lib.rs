@@ -658,8 +658,8 @@ mod tests {
         let pkstates = PKStates(vec![]);
 
         // Serialize to YAML
-        let yaml_string =
-            serde_yaml_bw::to_string(&pkstates).expect("Failed to serialize empty PKStates to YAML");
+        let yaml_string = serde_yaml_bw::to_string(&pkstates)
+            .expect("Failed to serialize empty PKStates to YAML");
 
         // Deserialize from YAML
         let deserialized: PKStates =
@@ -667,7 +667,11 @@ mod tests {
 
         // Verify the deserialized PKStates matches the original
         assert_eq!(pkstates, deserialized, "Empty PKStates should round-trip");
-        assert_eq!(deserialized.0.len(), 0, "Deserialized PKStates should be empty");
+        assert_eq!(
+            deserialized.0.len(),
+            0,
+            "Deserialized PKStates should be empty"
+        );
     }
 
     #[test]
@@ -706,10 +710,7 @@ mod tests {
             .expect("Failed to serialize single-hand PKStates to YAML");
 
         // Verify YAML structure
-        assert!(
-            yaml_string.contains("- id:"),
-            "YAML should contain hand id"
-        );
+        assert!(yaml_string.contains("- id:"), "YAML should contain hand id");
         assert!(
             yaml_string.contains("NoLimitHoldem"),
             "YAML should contain game type"
@@ -724,8 +725,15 @@ mod tests {
             serde_yaml_bw::from_str(&yaml_string).expect("Failed to deserialize PKStates");
 
         // Verify round-trip
-        assert_eq!(pkstates, deserialized, "Single-hand PKStates should round-trip");
-        assert_eq!(deserialized.0.len(), 1, "Deserialized PKStates should have 1 hand");
+        assert_eq!(
+            pkstates, deserialized,
+            "Single-hand PKStates should round-trip"
+        );
+        assert_eq!(
+            deserialized.0.len(),
+            1,
+            "Deserialized PKStates should have 1 hand"
+        );
         assert_eq!(
             deserialized.0[0].id,
             Some("hand-001".to_string()),
@@ -846,8 +854,7 @@ mod tests {
             "First hand game type should be preserved"
         );
         assert_eq!(
-            deserialized.0[0].button,
-            0,
+            deserialized.0[0].button, 0,
             "First hand button should be preserved"
         );
         assert_eq!(
@@ -868,8 +875,7 @@ mod tests {
             "Second hand game type should be preserved"
         );
         assert_eq!(
-            deserialized.0[1].button,
-            1,
+            deserialized.0[1].button, 1,
             "Second hand button should be preserved"
         );
         assert_eq!(
@@ -1161,23 +1167,19 @@ mod tests {
 
         // Verify stacks are preserved
         assert_eq!(
-            deserialized.0[0].players[0].stack,
-            100,
+            deserialized.0[0].players[0].stack, 100,
             "Short stack should be preserved"
         );
         assert_eq!(
-            deserialized.0[0].players[1].stack,
-            5000,
+            deserialized.0[0].players[1].stack, 5000,
             "Medium stack should be preserved"
         );
         assert_eq!(
-            deserialized.0[0].players[2].stack,
-            50000,
+            deserialized.0[0].players[2].stack, 50000,
             "Big stack should be preserved"
         );
         assert_eq!(
-            deserialized.0[0].players[3].stack,
-            0,
+            deserialized.0[0].players[3].stack, 0,
             "All-in stack should be preserved"
         );
     }
@@ -1214,8 +1216,8 @@ mod tests {
         let pkstates = PKStates(states);
 
         // Serialize to YAML
-        let yaml_string = serde_yaml_bw::to_string(&pkstates)
-            .expect("Failed to serialize PKStates to YAML");
+        let yaml_string =
+            serde_yaml_bw::to_string(&pkstates).expect("Failed to serialize PKStates to YAML");
 
         // Deserialize from YAML
         let deserialized: PKStates =
@@ -1232,8 +1234,7 @@ mod tests {
                 i
             );
             assert_eq!(
-                deserialized.0[i].button,
-                i,
+                deserialized.0[i].button, i,
                 "Hand {} button should be preserved in order",
                 i
             );
@@ -1291,7 +1292,10 @@ mod tests {
             serde_yaml_bw::to_string(&pkstates).expect("Failed to serialize PKStates to YAML");
         let deserialized: PKStates =
             serde_yaml_bw::from_str(&yaml_string).expect("Failed to deserialize PKStates");
-        assert_eq!(pkstates, deserialized, "Converted PKStates should round-trip");
+        assert_eq!(
+            pkstates, deserialized,
+            "Converted PKStates should round-trip"
+        );
     }
 
     #[test]
@@ -1337,17 +1341,12 @@ mod tests {
             "First hand id should be present"
         );
         assert_eq!(
-            deserialized.0[0].board,
-            None,
+            deserialized.0[0].board, None,
             "First hand board should be None"
         );
 
         // Verify second hand
-        assert_eq!(
-            deserialized.0[1].id,
-            None,
-            "Second hand id should be None"
-        );
+        assert_eq!(deserialized.0[1].id, None, "Second hand id should be None");
         assert_eq!(
             deserialized.0[1].board,
             Some(basic!("A♠ K♠ Q♠")),
