@@ -65,6 +65,15 @@ pub mod game;
 pub mod seat;
 pub mod util;
 
+#[derive(Serialize, Deserialize, Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct PKStates(pub Vec<PKState>);
+
+impl From<Vec<PKState>> for PKStates {
+    fn from(states: Vec<PKState>) -> Self {
+        PKStates(states)
+    }
+}
+
 /// The complete state of a poker hand.
 ///
 /// `PKState` captures every piece of information needed to represent or replay a hand:
@@ -639,5 +648,709 @@ mod tests {
         let deserialized: Round =
             serde_yaml_bw::from_str(&yaml).expect("Failed to deserialize Round with dealt actions");
         assert_eq!(round, deserialized, "Round should round-trip correctly");
+    }
+
+    // ====== PKStates YAML Serialization Tests ======
+    // These are AI generated tests. I am not a big fan, but they do the work.
+
+    #[test]
+    fn pkstates_empty_yaml_serialization() {
+        let pkstates = PKStates(vec![]);
+
+        // Serialize to YAML
+        let yaml_string = serde_yaml_bw::to_string(&pkstates)
+            .expect("Failed to serialize empty PKStates to YAML");
+
+        // Deserialize from YAML
+        let deserialized: PKStates =
+            serde_yaml_bw::from_str(&yaml_string).expect("Failed to deserialize empty PKStates");
+
+        // Verify the deserialized PKStates matches the original
+        assert_eq!(pkstates, deserialized, "Empty PKStates should round-trip");
+        assert_eq!(
+            deserialized.0.len(),
+            0,
+            "Deserialized PKStates should be empty"
+        );
+    }
+
+    #[test]
+    fn pkstates_single_hand_yaml_serialization() {
+        let state = PKState {
+            id: Some("hand-001".to_string()),
+            datetime: None,
+            game: GameType::NoLimitHoldem,
+            button: 0,
+            forced_bets: ForcedBets::new(50, 100),
+            board: None,
+            players: vec![
+                Seat {
+                    id: Some("p1".to_string()),
+                    name: "Alice".to_string(),
+                    stack: 1000,
+                },
+                Seat {
+                    id: Some("p2".to_string()),
+                    name: "Bob".to_string(),
+                    stack: 2000,
+                },
+            ],
+            rounds: vec![Round(vec![
+                Action::P0Dealt(basic!("A♠ K♠")),
+                Action::P1Dealt(basic!("7♦ 2♣")),
+                Action::P0CBR(100),
+                Action::P1Fold,
+            ])],
+        };
+
+        let pkstates = PKStates(vec![state.clone()]);
+
+        // Serialize to YAML
+        let yaml_string = serde_yaml_bw::to_string(&pkstates)
+            .expect("Failed to serialize single-hand PKStates to YAML");
+
+        // Verify YAML structure
+        assert!(yaml_string.contains("- id:"), "YAML should contain hand id");
+        assert!(
+            yaml_string.contains("NoLimitHoldem"),
+            "YAML should contain game type"
+        );
+        assert!(
+            yaml_string.contains("Alice"),
+            "YAML should contain player name"
+        );
+
+        // Deserialize from YAML
+        let deserialized: PKStates =
+            serde_yaml_bw::from_str(&yaml_string).expect("Failed to deserialize PKStates");
+
+        // Verify round-trip
+        assert_eq!(
+            pkstates, deserialized,
+            "Single-hand PKStates should round-trip"
+        );
+        assert_eq!(
+            deserialized.0.len(),
+            1,
+            "Deserialized PKStates should have 1 hand"
+        );
+        assert_eq!(
+            deserialized.0[0].id,
+            Some("hand-001".to_string()),
+            "Hand id should be preserved"
+        );
+        assert_eq!(
+            deserialized.0[0].players.len(),
+            2,
+            "Hand should have 2 players"
+        );
+    }
+
+    #[test]
+    fn pkstates_multiple_hands_yaml_serialization() {
+        let state1 = PKState {
+            id: Some("hand-001".to_string()),
+            datetime: None,
+            game: GameType::NoLimitHoldem,
+            button: 0,
+            forced_bets: ForcedBets::new(50, 100),
+            board: None,
+            players: vec![
+                Seat {
+                    id: None,
+                    name: "Alice".to_string(),
+                    stack: 1000,
+                },
+                Seat {
+                    id: None,
+                    name: "Bob".to_string(),
+                    stack: 2000,
+                },
+            ],
+            rounds: vec![],
+        };
+
+        let state2 = PKState {
+            id: Some("hand-002".to_string()),
+            datetime: None,
+            game: GameType::LimitHoldem,
+            button: 1,
+            forced_bets: ForcedBets::new(25, 50),
+            board: Some(basic!("9♣ 6♦ 5♥")),
+            players: vec![
+                Seat {
+                    id: None,
+                    name: "Charlie".to_string(),
+                    stack: 5000,
+                },
+                Seat {
+                    id: None,
+                    name: "Diana".to_string(),
+                    stack: 3000,
+                },
+                Seat {
+                    id: None,
+                    name: "Eve".to_string(),
+                    stack: 4000,
+                },
+            ],
+            rounds: vec![Round(vec![Action::P0Check, Action::P1CBR(50)])],
+        };
+
+        let pkstates = PKStates(vec![state1.clone(), state2.clone()]);
+
+        // Serialize to YAML
+        let yaml_string = serde_yaml_bw::to_string(&pkstates)
+            .expect("Failed to serialize multi-hand PKStates to YAML");
+
+        println!("Multi-hand PKStates YAML:\n{}", yaml_string);
+
+        // Verify YAML structure
+        assert!(
+            yaml_string.contains("hand-001"),
+            "YAML should contain first hand id"
+        );
+        assert!(
+            yaml_string.contains("hand-002"),
+            "YAML should contain second hand id"
+        );
+        assert!(
+            yaml_string.contains("NoLimitHoldem"),
+            "YAML should contain NoLimitHoldem game type"
+        );
+        assert!(
+            yaml_string.contains("LimitHoldem"),
+            "YAML should contain LimitHoldem game type"
+        );
+        assert!(
+            yaml_string.contains("board:"),
+            "YAML should contain board for hand 2"
+        );
+
+        // Deserialize from YAML
+        let deserialized: PKStates =
+            serde_yaml_bw::from_str(&yaml_string).expect("Failed to deserialize PKStates");
+
+        // Verify round-trip
+        assert_eq!(
+            pkstates, deserialized,
+            "Multi-hand PKStates should round-trip"
+        );
+        assert_eq!(
+            deserialized.0.len(),
+            2,
+            "Deserialized PKStates should have 2 hands"
+        );
+
+        // Verify first hand
+        assert_eq!(
+            deserialized.0[0].id,
+            Some("hand-001".to_string()),
+            "First hand id should be preserved"
+        );
+        assert_eq!(
+            deserialized.0[0].game,
+            GameType::NoLimitHoldem,
+            "First hand game type should be preserved"
+        );
+        assert_eq!(
+            deserialized.0[0].button, 0,
+            "First hand button should be preserved"
+        );
+        assert_eq!(
+            deserialized.0[0].players.len(),
+            2,
+            "First hand should have 2 players"
+        );
+
+        // Verify second hand
+        assert_eq!(
+            deserialized.0[1].id,
+            Some("hand-002".to_string()),
+            "Second hand id should be preserved"
+        );
+        assert_eq!(
+            deserialized.0[1].game,
+            GameType::LimitHoldem,
+            "Second hand game type should be preserved"
+        );
+        assert_eq!(
+            deserialized.0[1].button, 1,
+            "Second hand button should be preserved"
+        );
+        assert_eq!(
+            deserialized.0[1].board,
+            Some(basic!("9♣ 6♦ 5♥")),
+            "Second hand board should be preserved"
+        );
+        assert_eq!(
+            deserialized.0[1].players.len(),
+            3,
+            "Second hand should have 3 players"
+        );
+        assert_eq!(
+            deserialized.0[1].rounds.len(),
+            1,
+            "Second hand should have 1 round"
+        );
+    }
+
+    #[test]
+    fn pkstates_with_datetime_yaml_serialization() {
+        use chrono::TimeZone;
+
+        let datetime1 = Utc.with_ymd_and_hms(2024, 3, 15, 10, 30, 0).unwrap();
+        let datetime2 = Utc.with_ymd_and_hms(2024, 3, 15, 12, 45, 30).unwrap();
+
+        let state1 = PKState {
+            id: Some("hand-001".to_string()),
+            datetime: Some(datetime1),
+            game: GameType::NoLimitHoldem,
+            button: 0,
+            forced_bets: ForcedBets::new(50, 100),
+            board: None,
+            players: vec![],
+            rounds: vec![],
+        };
+
+        let state2 = PKState {
+            id: Some("hand-002".to_string()),
+            datetime: Some(datetime2),
+            game: GameType::PLO,
+            button: 1,
+            forced_bets: ForcedBets::new(25, 50),
+            board: None,
+            players: vec![],
+            rounds: vec![],
+        };
+
+        let pkstates = PKStates(vec![state1, state2]);
+
+        // Serialize to YAML
+        let yaml_string = serde_yaml_bw::to_string(&pkstates)
+            .expect("Failed to serialize PKStates with datetimes to YAML");
+
+        println!("PKStates with datetimes YAML:\n{}", yaml_string);
+
+        // Verify datetime is serialized
+        assert!(
+            yaml_string.contains("datetime:"),
+            "YAML should contain datetime fields"
+        );
+
+        // Deserialize from YAML
+        let deserialized: PKStates =
+            serde_yaml_bw::from_str(&yaml_string).expect("Failed to deserialize PKStates");
+
+        // Verify round-trip preserves datetimes
+        assert_eq!(
+            deserialized.0[0].datetime,
+            Some(datetime1),
+            "First hand datetime should be preserved"
+        );
+        assert_eq!(
+            deserialized.0[1].datetime,
+            Some(datetime2),
+            "Second hand datetime should be preserved"
+        );
+    }
+
+    #[test]
+    fn pkstates_with_all_game_types_yaml_serialization() {
+        let game_types = vec![
+            GameType::NoLimitHoldem,
+            GameType::LimitHoldem,
+            GameType::PLO,
+            GameType::Razz,
+        ];
+
+        let mut pkstates_vec = Vec::new();
+
+        for (idx, game_type) in game_types.iter().enumerate() {
+            let state = PKState {
+                id: Some(format!("hand-{:03}", idx)),
+                datetime: None,
+                game: *game_type,
+                button: idx % 2,
+                forced_bets: ForcedBets::new(50, 100),
+                board: None,
+                players: vec![],
+                rounds: vec![],
+            };
+            pkstates_vec.push(state);
+        }
+
+        let pkstates = PKStates(pkstates_vec);
+
+        // Serialize to YAML
+        let yaml_string = serde_yaml_bw::to_string(&pkstates)
+            .expect("Failed to serialize PKStates with all game types to YAML");
+
+        // Verify all game types are serialized
+        assert!(
+            yaml_string.contains("NoLimitHoldem"),
+            "YAML should contain NoLimitHoldem"
+        );
+        assert!(
+            yaml_string.contains("LimitHoldem"),
+            "YAML should contain LimitHoldem"
+        );
+        assert!(yaml_string.contains("PLO"), "YAML should contain PLO");
+        assert!(yaml_string.contains("Razz"), "YAML should contain Razz");
+
+        // Deserialize from YAML
+        let deserialized: PKStates =
+            serde_yaml_bw::from_str(&yaml_string).expect("Failed to deserialize PKStates");
+
+        // Verify round-trip preserves all game types
+        assert_eq!(deserialized.0.len(), 4, "Should have 4 hands");
+        assert_eq!(deserialized.0[0].game, GameType::NoLimitHoldem);
+        assert_eq!(deserialized.0[1].game, GameType::LimitHoldem);
+        assert_eq!(deserialized.0[2].game, GameType::PLO);
+        assert_eq!(deserialized.0[3].game, GameType::Razz);
+    }
+
+    #[test]
+    fn pkstates_with_complex_actions_yaml_serialization() {
+        let round1 = Round(vec![
+            Action::P0Dealt(basic!("A♠ K♠")),
+            Action::P1Dealt(basic!("Q♦ J♦")),
+            Action::P2Dealt(basic!("T♥ 9♥")),
+            Action::P0CBR(100),
+            Action::P1CBR(300),
+            Action::P2Fold,
+            Action::P0CBR(600),
+            Action::P1CBR(600),
+        ]);
+
+        let round2 = Round(vec![
+            Action::DealCommon(basic!("K♣ 9♣ 5♠")),
+            Action::P0Check,
+            Action::P1CBR(500),
+            Action::P0CBR(1500),
+            Action::P1Fold,
+            Action::P0Wins(2500),
+        ]);
+
+        let state = PKState {
+            id: Some("complex-hand".to_string()),
+            datetime: None,
+            game: GameType::NoLimitHoldem,
+            button: 0,
+            forced_bets: ForcedBets::new(50, 100),
+            board: None,
+            players: vec![
+                Seat {
+                    id: Some("alice".to_string()),
+                    name: "Alice".to_string(),
+                    stack: 10000,
+                },
+                Seat {
+                    id: Some("bob".to_string()),
+                    name: "Bob".to_string(),
+                    stack: 8000,
+                },
+                Seat {
+                    id: Some("charlie".to_string()),
+                    name: "Charlie".to_string(),
+                    stack: 5000,
+                },
+            ],
+            rounds: vec![round1, round2],
+        };
+
+        let pkstates = PKStates(vec![state.clone()]);
+
+        // Serialize to YAML
+        let yaml_string = serde_yaml_bw::to_string(&pkstates)
+            .expect("Failed to serialize PKStates with complex actions to YAML");
+
+        println!("Complex PKStates YAML:\n{}", yaml_string);
+
+        // Verify structure
+        assert!(
+            yaml_string.contains("P0Dealt"),
+            "YAML should contain dealt actions"
+        );
+        assert!(
+            yaml_string.contains("P0CBR") || yaml_string.contains("cbr:"),
+            "YAML should contain bet/raise actions"
+        );
+        assert!(
+            yaml_string.contains("P1Fold") || yaml_string.contains("fold:"),
+            "YAML should contain fold actions"
+        );
+        assert!(
+            yaml_string.contains("DealCommon"),
+            "YAML should contain common card actions"
+        );
+
+        // Deserialize from YAML
+        let deserialized: PKStates =
+            serde_yaml_bw::from_str(&yaml_string).expect("Failed to deserialize complex PKStates");
+
+        // Verify round-trip
+        assert_eq!(pkstates, deserialized, "Complex PKStates should round-trip");
+        assert_eq!(
+            deserialized.0[0].rounds.len(),
+            2,
+            "Hand should have 2 rounds"
+        );
+        assert_eq!(
+            deserialized.0[0].players.len(),
+            3,
+            "Hand should have 3 players"
+        );
+    }
+
+    #[test]
+    fn pkstates_with_varied_stacks_yaml_serialization() {
+        let state = PKState {
+            id: Some("varied-stacks".to_string()),
+            datetime: None,
+            game: GameType::NoLimitHoldem,
+            button: 2,
+            forced_bets: ForcedBets::new(10, 20),
+            board: None,
+            players: vec![
+                Seat {
+                    id: None,
+                    name: "Short Stack".to_string(),
+                    stack: 100,
+                },
+                Seat {
+                    id: None,
+                    name: "Medium Stack".to_string(),
+                    stack: 5000,
+                },
+                Seat {
+                    id: None,
+                    name: "Big Stack".to_string(),
+                    stack: 50000,
+                },
+                Seat {
+                    id: None,
+                    name: "All In".to_string(),
+                    stack: 0,
+                },
+            ],
+            rounds: vec![],
+        };
+
+        let pkstates = PKStates(vec![state]);
+
+        // Serialize to YAML
+        let yaml_string = serde_yaml_bw::to_string(&pkstates)
+            .expect("Failed to serialize PKStates with varied stacks to YAML");
+
+        // Verify stacks are preserved
+        assert!(
+            yaml_string.contains("100"),
+            "YAML should contain short stack"
+        );
+        assert!(
+            yaml_string.contains("5000"),
+            "YAML should contain medium stack"
+        );
+        assert!(
+            yaml_string.contains("50000"),
+            "YAML should contain big stack"
+        );
+        assert!(
+            yaml_string.contains("0"),
+            "YAML should contain all-in stack"
+        );
+
+        // Deserialize from YAML
+        let deserialized: PKStates =
+            serde_yaml_bw::from_str(&yaml_string).expect("Failed to deserialize PKStates");
+
+        // Verify stacks are preserved
+        assert_eq!(
+            deserialized.0[0].players[0].stack, 100,
+            "Short stack should be preserved"
+        );
+        assert_eq!(
+            deserialized.0[0].players[1].stack, 5000,
+            "Medium stack should be preserved"
+        );
+        assert_eq!(
+            deserialized.0[0].players[2].stack, 50000,
+            "Big stack should be preserved"
+        );
+        assert_eq!(
+            deserialized.0[0].players[3].stack, 0,
+            "All-in stack should be preserved"
+        );
+    }
+
+    #[test]
+    fn pkstates_yaml_serialization_preserves_order() {
+        let mut states = Vec::new();
+
+        for i in 0..5 {
+            let state = PKState {
+                id: Some(format!("hand-{}", i)),
+                datetime: None,
+                game: GameType::NoLimitHoldem,
+                button: i,
+                forced_bets: ForcedBets::new(50, 100),
+                board: None,
+                players: vec![
+                    Seat {
+                        id: None,
+                        name: format!("Player {}", i * 2),
+                        stack: 1000 + (i * 100),
+                    },
+                    Seat {
+                        id: None,
+                        name: format!("Player {}", i * 2 + 1),
+                        stack: 2000 - (i * 50),
+                    },
+                ],
+                rounds: vec![],
+            };
+            states.push(state);
+        }
+
+        let pkstates = PKStates(states);
+
+        // Serialize to YAML
+        let yaml_string =
+            serde_yaml_bw::to_string(&pkstates).expect("Failed to serialize PKStates to YAML");
+
+        // Deserialize from YAML
+        let deserialized: PKStates =
+            serde_yaml_bw::from_str(&yaml_string).expect("Failed to deserialize PKStates");
+
+        // Verify order is preserved
+        assert_eq!(deserialized.0.len(), 5, "Should have 5 hands");
+
+        for i in 0..5 {
+            assert_eq!(
+                deserialized.0[i].id,
+                Some(format!("hand-{}", i)),
+                "Hand {} id should be preserved in order",
+                i
+            );
+            assert_eq!(
+                deserialized.0[i].button, i,
+                "Hand {} button should be preserved in order",
+                i
+            );
+            assert_eq!(
+                deserialized.0[i].players[0].name,
+                format!("Player {}", i * 2),
+                "Hand {} first player name should be preserved in order",
+                i
+            );
+        }
+    }
+
+    #[test]
+    fn pkstates_from_vec_conversion() {
+        let states = vec![
+            PKState {
+                id: Some("hand-1".to_string()),
+                datetime: None,
+                game: GameType::NoLimitHoldem,
+                button: 0,
+                forced_bets: ForcedBets::new(50, 100),
+                board: None,
+                players: vec![],
+                rounds: vec![],
+            },
+            PKState {
+                id: Some("hand-2".to_string()),
+                datetime: None,
+                game: GameType::LimitHoldem,
+                button: 1,
+                forced_bets: ForcedBets::new(25, 50),
+                board: None,
+                players: vec![],
+                rounds: vec![],
+            },
+        ];
+
+        let pkstates: PKStates = states.into();
+
+        // Verify conversion works
+        assert_eq!(pkstates.0.len(), 2, "PKStates should have 2 hands");
+        assert_eq!(
+            pkstates.0[0].id,
+            Some("hand-1".to_string()),
+            "First hand should be preserved"
+        );
+        assert_eq!(
+            pkstates.0[1].id,
+            Some("hand-2".to_string()),
+            "Second hand should be preserved"
+        );
+
+        // Verify it can be serialized/deserialized
+        let yaml_string =
+            serde_yaml_bw::to_string(&pkstates).expect("Failed to serialize PKStates to YAML");
+        let deserialized: PKStates =
+            serde_yaml_bw::from_str(&yaml_string).expect("Failed to deserialize PKStates");
+        assert_eq!(
+            pkstates, deserialized,
+            "Converted PKStates should round-trip"
+        );
+    }
+
+    #[test]
+    fn pkstates_partial_none_fields_yaml_serialization() {
+        let state1 = PKState {
+            id: Some("hand-1".to_string()),
+            datetime: None,
+            game: GameType::NoLimitHoldem,
+            button: 0,
+            forced_bets: ForcedBets::new(50, 100),
+            board: None,
+            players: vec![],
+            rounds: vec![],
+        };
+
+        let state2 = PKState {
+            id: None,
+            datetime: None,
+            game: GameType::NoLimitHoldem,
+            button: 0,
+            forced_bets: ForcedBets::new(50, 100),
+            board: Some(basic!("A♠ K♠ Q♠")),
+            players: vec![],
+            rounds: vec![],
+        };
+
+        let pkstates = PKStates(vec![state1, state2]);
+
+        // Serialize to YAML
+        let yaml_string =
+            serde_yaml_bw::to_string(&pkstates).expect("Failed to serialize PKStates to YAML");
+
+        println!("Partial None fields YAML:\n{}", yaml_string);
+
+        // Deserialize from YAML
+        let deserialized: PKStates =
+            serde_yaml_bw::from_str(&yaml_string).expect("Failed to deserialize PKStates");
+
+        // Verify first hand
+        assert_eq!(
+            deserialized.0[0].id,
+            Some("hand-1".to_string()),
+            "First hand id should be present"
+        );
+        assert_eq!(
+            deserialized.0[0].board, None,
+            "First hand board should be None"
+        );
+
+        // Verify second hand
+        assert_eq!(deserialized.0[1].id, None, "Second hand id should be None");
+        assert_eq!(
+            deserialized.0[1].board,
+            Some(basic!("A♠ K♠ Q♠")),
+            "Second hand board should be present"
+        );
     }
 }
