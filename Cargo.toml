@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "A library for representing, serializing, and deserializing the state of a poker hand"
 license = "MIT OR Apache-2.0"
+authors = ["electronicpanopticon <gaoler@electronicpanopticon.com>"]
 documentation = "https://docs.rs/pkstate"
 homepage = "https://github.com/ImperialBower/pkstate"
 repository = "https://github.com/ImperialBower/pkstate"
