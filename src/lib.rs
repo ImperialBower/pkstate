@@ -1,3 +1,55 @@
+//! # pkstate
+//!
+//! A library for representing, serializing, and deserializing the state of a poker hand.
+//!
+//! `pkstate` models everything needed to describe a hand in progress or a complete hand history:
+//! the game type, forced bets, the players at the table, the community board cards, and the full
+//! sequence of actions across every street. All types implement [`serde::Serialize`] and
+//! [`serde::Deserialize`], with [`BasicPile`] card collections serialized as human-readable
+//! Unicode card strings (e.g. `"A♠ K♥"`).
+//!
+//! ## Modules
+//!
+//! - [`act`] — [`act::Action`] enum and [`act::Round`] newtype.
+//! - [`game`] — [`game::GameType`] enum and [`game::ForcedBets`] struct.
+//! - [`seat`] — [`seat::Seat`] struct representing a player at the table.
+//! - [`util`] — Shared serde helpers for [`BasicPile`] serialization.
+//!
+//! ## Example
+//!
+//! ```rust
+//! use pkstate::{PKState, act::{Action, Round}, game::{ForcedBets, GameType}, seat::Seat};
+//! use cardpack::prelude::*;
+//!
+//! let players = vec![
+//!     Seat { id: None, name: "Alice".to_string(), stack: 1_000 },
+//!     Seat { id: None, name: "Bob".to_string(),   stack: 1_000 },
+//! ];
+//!
+//! let preflop = Round(vec![
+//!     Action::P0Dealt(basic!("A♠ K♠")),
+//!     Action::P1Dealt(basic!("7♦ 2♣")),
+//!     Action::P0CBR(100),
+//!     Action::P1Fold,
+//!     Action::P0Wins(100),
+//! ]);
+//!
+//! let state = PKState {
+//!     id: Some("example-hand".to_string()),
+//!     datetime: None,
+//!     game: GameType::NoLimitHoldem,
+//!     button: 0,
+//!     forced_bets: ForcedBets::new(50, 100),
+//!     board: None,
+//!     players,
+//!     rounds: vec![preflop],
+//! };
+//!
+//! let yaml = serde_yaml_bw::to_string(&state).unwrap();
+//! let restored: PKState = serde_yaml_bw::from_str(&yaml).unwrap();
+//! assert_eq!(state, restored);
+//! ```
+
 #![warn(clippy::pedantic, clippy::unwrap_used, clippy::expect_used)]
 
 use crate::act::Round;
@@ -13,15 +65,46 @@ pub mod game;
 pub mod seat;
 pub mod util;
 
+/// The complete state of a poker hand.
+///
+/// `PKState` captures every piece of information needed to represent or replay a hand:
+/// which game is being played, who is sitting where, what the forced bets are, what cards
+/// are on the board, and the full ordered sequence of actions across every betting round.
+///
+/// Optional fields (`id`, `datetime`, `board`) are omitted from YAML when [`None`], keeping
+/// serialized output concise.
+///
+/// # Example
+///
+/// ```rust
+/// use pkstate::{PKState, game::{ForcedBets, GameType}, seat::Seat};
+///
+/// let state = PKState {
+///     id: Some("hand-001".to_string()),
+///     datetime: None,
+///     game: GameType::NoLimitHoldem,
+///     button: 0,
+///     forced_bets: ForcedBets::new(50, 100),
+///     board: None,
+///     players: vec![],
+///     rounds: vec![],
+/// };
+/// ```
 #[derive(Serialize, Deserialize, Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct PKState {
+    /// Optional unique identifier for the hand (e.g. a UUID or slug).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
+    /// Optional UTC timestamp of when the hand was played.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub datetime: Option<DateTime<Utc>>,
+    /// The poker variant being played.
     pub game: GameType,
+    /// Seat index (0-based) of the dealer button.
     pub button: usize,
+    /// The forced bets (blinds, straddles, ante) for this hand.
     pub forced_bets: ForcedBets,
+    /// The community board cards. Serialized as a Unicode card string, e.g. `"9♣ 6♦ 5♥ 5♠ 8♠"`.
     #[serde(
         skip_serializing_if = "Option::is_none",
         serialize_with = "serialize_basic_pile_opt",
@@ -29,7 +112,10 @@ pub struct PKState {
         default
     )]
     pub board: Option<BasicPile>,
+    /// The players seated at the table, in seat order.
     pub players: Vec<Seat>,
+    /// The betting rounds (preflop, flop, turn, river, …), each containing an ordered list of
+    /// [`Action`](act::Action)s.
     pub rounds: Vec<Round>,
 }
 #[cfg(test)]
@@ -42,42 +128,42 @@ mod tests {
     fn the_hand() {
         let players = vec![
             Seat {
-                id: Some("player0".to_string()),
+                id: None,
                 name: "Doyle Brunson".to_string(),
                 stack: 1_000_000,
             },
             Seat {
-                id: Some("player1".to_string()),
+                id: None,
                 name: "Eli Elezra".to_string(),
                 stack: 1_000_000,
             },
             Seat {
-                id: Some("player2".to_string()),
+                id: None,
                 name: "Antonio Esfandari".to_string(),
                 stack: 1_000_000,
             },
             Seat {
-                id: Some("player3".to_string()),
+                id: None,
                 name: "Gus Hansen".to_string(),
                 stack: 1_000_000,
             },
             Seat {
-                id: Some("player4".to_string()),
+                id: None,
                 name: "Daniel Negreanu".to_string(),
                 stack: 1_000_000,
             },
             Seat {
-                id: Some("player5".to_string()),
+                id: None,
                 name: "Cory Zeidman".to_string(),
                 stack: 1_000_000,
             },
             Seat {
-                id: Some("player6".to_string()),
+                id: None,
                 name: "Barry Greenstein".to_string(),
                 stack: 1_000_000,
             },
             Seat {
-                id: Some("player7".to_string()),
+                id: None,
                 name: "Amnon Filippi".to_string(),
                 stack: 1_000_000,
             },
@@ -125,7 +211,7 @@ mod tests {
             Action::P4CBR(65000),
             Action::P3CBR(945000),
             Action::P4CBR(945000),
-            Action::P3Wins(2000150),
+            Action::P3Wins(1000150),
             Action::P4Loses(1000000),
         ]);
 

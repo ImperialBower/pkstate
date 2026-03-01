@@ -1,82 +1,223 @@
+//! Actions and betting rounds.
+//!
+//! This module provides two types:
+//!
+//! - [`Action`] — a single event that can occur during a hand: dealing cards to a player,
+//!   dealing community cards, a player checking, calling/betting/raising, folding, or a
+//!   showdown result. Variants cover seats **P0 through P11** (up to 12 players).
+//! - [`Round`] — an ordered sequence of [`Action`]s representing one betting street (preflop,
+//!   flop, turn, river, …).
+//!
+//! ## YAML Representation
+//!
+//! `Action` uses a custom [`serde::Serialize`] / [`serde::Deserialize`] implementation so that
+//! [`BasicPile`] card collections are stored as human-readable Unicode card strings rather than
+//! nested structures.
+//!
+//! | Variant             | YAML                      |
+//! |---------------------|---------------------------|
+//! | `DealCommon(pile)`  | `DealCommon: "9♣ 6♦ 5♥"`  |
+//! | `PnDealt(pile)`     | `P0Dealt: "A♠ K♠"`        |
+//! | `PnCheck`           | `P0Check`                 |
+//! | `PnCBR(amount)`     | `P0CBR: 200`              |
+//! | `PnFold`            | `P1Fold`                  |
+//! | `PnWins(amount)`    | `P3Wins: 1000`            |
+//! | `PnLoses(amount)`   | `P4Loses: 1000`           |
+//!
+//! ## Example
+//!
+//! ```rust
+//! use pkstate::act::{Action, Round};
+//! use cardpack::prelude::*;
+//!
+//! let round = Round(vec![
+//!     Action::P0Dealt(basic!("A♠ K♠")),
+//!     Action::P1Dealt(basic!("7♦ 2♣")),
+//!     Action::P0CBR(100),
+//!     Action::P1Fold,
+//!     Action::P0Wins(100),
+//! ]);
+//!
+//! let yaml = serde_yaml_bw::to_string(&round).unwrap();
+//! let restored: Round = serde_yaml_bw::from_str(&yaml).unwrap();
+//! assert_eq!(round, restored);
+//! ```
+
 use cardpack::prelude::{BasicPile, Pile, Standard52};
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
+/// A single event in a poker hand.
+///
+/// Each variant is prefixed with the seat number it belongs to (`P0`–`P11`), or `DealCommon`
+/// for community cards shared by all players.
+///
+/// ## Variant groups (per seat)
+///
+/// | Variant        | Meaning                                         |
+/// |----------------|-------------------------------------------------|
+/// | `PnDealt(pile)`| The hole cards dealt to player *n*              |
+/// | `PnCheck`      | Player *n* checks                               |
+/// | `PnCBR(amount)`| Player *n* calls, bets, or raises *amount*      |
+/// | `PnFold`       | Player *n* folds                                |
+/// | `PnWins(amount)`| Player *n* wins *amount* chips at showdown     |
+/// | `PnLoses(amount)`| Player *n* loses *amount* chips at showdown  |
+///
+/// `DealCommon(pile)` records a community card deal (flop, turn, or river).
+///
+/// ## Serialization
+///
+/// Unit variants (`PnCheck`, `PnFold`) serialize as plain YAML strings.
+/// All other variants serialize as single-entry YAML mappings.
+/// [`BasicPile`] values are encoded as Unicode card strings, e.g. `"A♠ K♥"`.
 #[derive(Clone, Debug, Ord, PartialOrd, Eq, Hash, PartialEq)]
 pub enum Action {
+    /// Deal community cards (flop, turn, or river). Serialized as `DealCommon: "9♣ 6♦ 5♥"`.
     DealCommon(BasicPile),
+    /// Hole cards dealt to player 0. Serialized as `P0Dealt: "A♠ K♠"`.
     P0Dealt(BasicPile),
+    /// Player 0 checks.
     P0Check,
+    /// Player 0 calls, bets, or raises. Serialized as `P0CBR: <amount>`.
     P0CBR(usize),
+    /// Player 0 folds.
     P0Fold,
+    /// Player 0 wins chips. Serialized as `P0Wins: <amount>`.
     P0Wins(usize),
+    /// Player 0 loses chips. Serialized as `P0Loses: <amount>`.
     P0Loses(usize),
+    /// Hole cards dealt to player 1.
     P1Dealt(BasicPile),
+    /// Player 1 checks.
     P1Check,
+    /// Player 1 calls, bets, or raises.
     P1CBR(usize),
+    /// Player 1 folds.
     P1Fold,
+    /// Player 1 wins chips.
     P1Wins(usize),
+    /// Player 1 loses chips.
     P1Loses(usize),
+    /// Hole cards dealt to player 2.
     P2Dealt(BasicPile),
+    /// Player 2 checks.
     P2Check,
+    /// Player 2 calls, bets, or raises.
     P2CBR(usize),
+    /// Player 2 folds.
     P2Fold,
+    /// Player 2 wins chips.
     P2Wins(usize),
+    /// Player 2 loses chips.
     P2Loses(usize),
+    /// Hole cards dealt to player 3.
     P3Dealt(BasicPile),
+    /// Player 3 checks.
     P3Check,
+    /// Player 3 calls, bets, or raises.
     P3CBR(usize),
+    /// Player 3 folds.
     P3Fold,
+    /// Player 3 wins chips.
     P3Wins(usize),
+    /// Player 3 loses chips.
     P3Loses(usize),
+    /// Hole cards dealt to player 4.
     P4Dealt(BasicPile),
+    /// Player 4 checks.
     P4Check,
+    /// Player 4 calls, bets, or raises.
     P4CBR(usize),
+    /// Player 4 folds.
     P4Fold,
+    /// Player 4 wins chips.
     P4Wins(usize),
+    /// Player 4 loses chips.
     P4Loses(usize),
+    /// Hole cards dealt to player 5.
     P5Dealt(BasicPile),
+    /// Player 5 checks.
     P5Check,
+    /// Player 5 calls, bets, or raises.
     P5CBR(usize),
+    /// Player 5 folds.
     P5Fold,
+    /// Player 5 wins chips.
     P5Wins(usize),
+    /// Player 5 loses chips.
     P5Loses(usize),
+    /// Hole cards dealt to player 6.
     P6Dealt(BasicPile),
+    /// Player 6 checks.
     P6Check,
+    /// Player 6 calls, bets, or raises.
     P6CBR(usize),
+    /// Player 6 folds.
     P6Fold,
+    /// Player 6 wins chips.
     P6Wins(usize),
+    /// Player 6 loses chips.
     P6Loses(usize),
+    /// Hole cards dealt to player 7.
     P7Dealt(BasicPile),
+    /// Player 7 checks.
     P7Check,
+    /// Player 7 calls, bets, or raises.
     P7CBR(usize),
+    /// Player 7 folds.
     P7Fold,
+    /// Player 7 wins chips.
     P7Wins(usize),
+    /// Player 7 loses chips.
     P7Loses(usize),
+    /// Hole cards dealt to player 8.
     P8Dealt(BasicPile),
+    /// Player 8 checks.
     P8Check,
+    /// Player 8 calls, bets, or raises.
     P8CBR(usize),
+    /// Player 8 folds.
     P8Fold,
+    /// Player 8 wins chips.
     P8Wins(usize),
+    /// Player 8 loses chips.
     P8Loses(usize),
+    /// Hole cards dealt to player 9.
     P9Dealt(BasicPile),
+    /// Player 9 checks.
     P9Check,
+    /// Player 9 calls, bets, or raises.
     P9CBR(usize),
+    /// Player 9 folds.
     P9Fold,
+    /// Player 9 wins chips.
     P9Wins(usize),
+    /// Player 9 loses chips.
     P9Loses(usize),
+    /// Hole cards dealt to player 10.
     P10Dealt(BasicPile),
+    /// Player 10 checks.
     P10Check,
+    /// Player 10 calls, bets, or raises.
     P10CBR(usize),
+    /// Player 10 folds.
     P10Fold,
+    /// Player 10 wins chips.
     P10Wins(usize),
+    /// Player 10 loses chips.
     P10Loses(usize),
+    /// Hole cards dealt to player 11.
     P11Dealt(BasicPile),
+    /// Player 11 checks.
     P11Check,
+    /// Player 11 calls, bets, or raises.
     P11CBR(usize),
+    /// Player 11 folds.
     P11Fold,
+    /// Player 11 wins chips.
     P11Wins(usize),
+    /// Player 11 loses chips.
     P11Loses(usize),
 }
 
@@ -575,6 +716,18 @@ impl<'de> Deserialize<'de> for Action {
 }
 
 impl Action {
+    /// Returns the seat number associated with this action, or [`None`] for [`Action::DealCommon`].
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use pkstate::act::Action;
+    /// use cardpack::prelude::*;
+    ///
+    /// assert_eq!(Action::P3Check.get_seat_number(), Some(3));
+    /// assert_eq!(Action::P11Fold.get_seat_number(), Some(11));
+    /// assert_eq!(Action::DealCommon(basic!("A♠ K♠")).get_seat_number(), None);
+    /// ```
     #[must_use]
     #[allow(clippy::too_many_lines)]
     pub fn get_seat_number(&self) -> Option<usize> {
@@ -656,5 +809,24 @@ impl Action {
     }
 }
 
+/// An ordered sequence of [`Action`]s representing one betting street.
+///
+/// A complete hand is modelled as a [`Vec<Round>`](Vec) inside [`PKState`](crate::PKState),
+/// where each `Round` typically corresponds to one street: preflop, flop, turn, and river.
+///
+/// # Example
+///
+/// ```rust
+/// use pkstate::act::{Action, Round};
+/// use cardpack::prelude::*;
+///
+/// let flop = Round(vec![
+///     Action::DealCommon(basic!("9♣ 6♦ 5♥")),
+///     Action::P3Check,
+///     Action::P4CBR(8000),
+///     Action::P3CBR(26000),
+///     Action::P4CBR(26000),
+/// ]);
+/// ```
 #[derive(Serialize, Deserialize, Clone, Debug, Ord, PartialOrd, Eq, Hash, PartialEq)]
 pub struct Round(pub Vec<Action>);
