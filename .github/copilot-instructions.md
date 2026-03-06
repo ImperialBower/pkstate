@@ -1,4 +1,4 @@
-# GitHub Copilot Instructions 
+# GitHub Copilot Instructions for pkstate
 
 These instructions guide GitHub Copilot to generate code that aligns with our project standards for testing, documentation, and code quality.
 
